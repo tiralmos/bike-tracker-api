@@ -451,6 +451,26 @@ feeds:
         url: https://proxy.transport.data.gouv.fr/resource/ilevia-lille-gtfs-rt
 ```
 
+## TCL
+
+Lyon, France
+
+> **Requires a free [data.grandlyon.com](https://data.grandlyon.com) account**, and a self-hosted [gtfsrt-tcl](https://github.com/kevinbioj/gtfsrt-tcl) instance, since TCL only publishes real-time data as SIRI-Lite. `YOUR_BASIC_AUTH` is your `email:password` encoded in base64. See the [Lyon deployment guide](../deployment/deploy-lyon.md) for a complete Docker setup.
+
+```yaml
+feeds:
+  tcl:
+    name: TCL
+    description: Lyon, France
+    gtfs:
+      static:
+        url: https://download.data.grandlyon.com/files/rdata/tcl_sytral.tcltheorique/GTFS_TCL.ZIP
+        headers:
+          Authorization: Basic YOUR_BASIC_AUTH
+      rtTripUpdates:
+        url: http://gtfsrt-tcl:3000/trip-updates
+```
+
 ## Réseau de transport de la Capitale
 
 Québec City, Canada

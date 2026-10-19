@@ -1,0 +1,80 @@
+# Self-hosted Transit Tracker API for Lyon (TCL).
+#
+# Expects both repositories cloned side by side:
+#
+#   <some folder>/
+#   ├── transit-tracker-lyon/   (this repository; run compose from deploy/lyon)
+#   └── gtfsrt-tcl/             (https://github.com/kevinbioj/gtfsrt-tcl)
+#
+# Credentials live in deploy/lyon/.env (copy .env.example). See
+# docs/deployment/deploy-lyon.md for the full step-by-step guide.
+
+name: transit-tracker-lyon
+
+services:
+  api:
+    build:
+      context: ../..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      gtfsrt-tcl:
+        condition: service_started
+    environment:
+      REDIS_URL: "redis://redis:6379"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/gtfs?sslmode=disable"
+      # Re-import the TCL timetables every night at 04:00 (Paris time).
+      # The import is skipped when the file has not changed.
+      TZ: "Europe/Paris"
+      FEED_SYNC_SCHEDULE: "0 4 * * *"
+      FEEDS_CONFIG: |
+        feeds:
+          tcl:
+            name: TCL
+            description: Lyon, France
+            gtfs:
+              static:
+                url: https://download.data.grandlyon.com/files/rdata/tcl_sytral.tcltheorique/GTFS_TCL.ZIP
+                headers:
+                  Authorization: "Basic ${GRANDLYON_BASIC_AUTH:?Set GRANDLYON_BASIC_AUTH in deploy/lyon/.env}"
+              rtTripUpdates:
+                url: http://gtfsrt-tcl:3000/trip-updates
+    ports:
+      # Published on every network interface so the ESP on your Wi-Fi can reach it.
+      - "3000:3000"
+
+  gtfsrt-tcl:
+    build:
+      context: ../../../gtfsrt-tcl
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Paris"
+      API_CREDENTIALS: "${GRANDLYON_CREDENTIALS:?Set GRANDLYON_CREDENTIALS in deploy/lyon/.env}"
+    ports:
+      # Only reachable from this computer; handy for checking the real-time feed.
+      - "127.0.0.1:50008:3000"
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gtfs
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gtfs"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - "db:/var/lib/postgresql/data"
+
+  redis:
+    image: redis:6
+    restart: unless-stopped
+
+volumes:
+  db:
