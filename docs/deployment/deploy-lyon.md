@@ -202,7 +202,17 @@ Then check that gtfsrt-tcl is receiving real-time data (wait about 30 seconds af
 docker compose logs --tail 20 gtfsrt-tcl
 ```
 
-You should see blocks ending with `✓ Done updating in ...ms`, with `Processed N trip updates` where N is above 0 while TCL is running. If you see `✘ Unable to update entities` with `http status 401`, the `GRANDLYON_CREDENTIALS` value is wrong: fix `.env`, then run `docker compose up -d` again.
+You should see blocks ending with `✓ Done updating in ...ms`. If you see `✘ Unable to update entities` with `http status 401`, the `GRANDLYON_CREDENTIALS` value is wrong: fix `.env`, then run `docker compose up -d` again.
+
+During the day, `Processed N trip updates` should show N in the hundreds or more. **At night it is normal to see `Processed 0 trip updates` and `Processed 0 vehicle positions`**: TCL only reports vehicles that are running, and most of the network stops between about 00:30 and 05:00. Check again in the morning before troubleshooting.
+
+To see exactly what data.grandlyon.com is sending gtfsrt-tcl, run:
+
+```shell
+docker compose exec gtfsrt-tcl node -e 'fetch(`https://data.grandlyon.com/siri-lite/2.0/estimated-timetables.json`,{headers:{Authorization:`Basic ${btoa(process.env.API_CREDENTIALS)}`}}).then(async r=>{const t=await r.text();const n=(t.match(/DatedVehicleJourneyRef/g)||[]).length;console.log(`HTTP ${r.status}, ${t.length} bytes, ${n} journeys`);console.log(t.slice(0,600))})'
+```
+
+This command is the same in PowerShell. It prints the HTTP status, the response size, the number of journeys, and the start of the response. If `journeys` is above 0 while gtfsrt-tcl still logs `Processed 0 trip updates`, the response layout is different from what gtfsrt-tcl expects. Note the first lines it prints, since they show what changed.
 
 The services restart on their own when the computer or Docker restarts. To stop them, run `docker compose down` (your imported data is kept).
 
@@ -281,7 +291,8 @@ The display saves the address as `ws://192.168.1.42:3000/` and should show TCL d
 | Symptom | Cause and fix |
 | --- | --- |
 | `docker compose` says `no configuration file provided` | You are not in `transit-tracker-lyon/deploy/lyon`. `cd` there first. |
-| Departures show but `isRealtime` is always `false` | Check `docker compose logs gtfsrt-tcl` (step 7) and run the matching check (step 8.5). Real-time data only exists while TCL vehicles are running. |
+| Departures show but `isRealtime` is always `false` | Check `docker compose logs gtfsrt-tcl` (step 7) and run the matching check (step 8.5). Real-time data only exists while TCL vehicles are running, so at night everything is timetable-only. |
+| gtfsrt-tcl logs `Processed 0 trip updates` | Normal at night (about 00:30 to 05:00). During the day, run the `docker compose exec gtfsrt-tcl node -e ...` check from step 7. |
 | Some lines or the metro show no departures | Run `docker compose exec postgres psql -U postgres -d gtfs -c "select count(*) from frequencies"`. If it's above 0, TCL describes some services by frequency ("every 4 minutes"), which the API does not support yet, so those trips are skipped. |
 | The display shows "Error loading schedule" | The display can't reach your computer. Redo step 9.4 from your phone and check the computer is on and Docker is running. |
 | Departures stop updating after a few weeks | The timetables are re-imported nightly. Check `docker compose logs api` for `Sync of feed "tcl" failed`, which usually means your data.grandlyon.com password changed: update `.env`, then `docker compose up -d`. |
