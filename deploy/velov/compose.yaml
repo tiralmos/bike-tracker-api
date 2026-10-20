@@ -8,8 +8,8 @@
 #   ├── bike-tracker-api/            (this repository; run compose from deploy/velov)
 #   └── bike-tracker-configurator/   (https://github.com/tiralmos/bike-tracker-configurator)
 #
-# Set your computer's network address in deploy/velov/.env (copy
-# .env.example). See docs/deployment/deploy-velov.md for the full guide.
+# Set your computer's network address (and optionally the API port) in
+# deploy/velov/.env (copy .env.example). See docs/deployment/deploy-velov.md for the full guide.
 
 name: bike-tracker-velov
 
@@ -37,13 +37,15 @@ services:
               url: https://download.data.grandlyon.com/files/rdata/jcd_jcdecaux.jcdvelov/gbfs.json
     ports:
       # Published on every network interface so the display on your Wi-Fi can reach it.
-      - "3000:3000"
+      # The port on your computer is API_PORT from .env (3001 if unset); inside
+      # the container the API always listens on 3000.
+      - "${API_PORT:-3001}:3000"
 
   configurator:
     build:
       context: ../../../bike-tracker-configurator
       args:
-        API_HOST: "http://${HOST_IP:?Set HOST_IP in deploy/velov/.env}:3000"
+        API_HOST: "http://${HOST_IP:?Set HOST_IP in deploy/velov/.env}:${API_PORT:-3001}"
     restart: unless-stopped
     ports:
       # Open http://localhost:8080 in Chrome or Edge on this computer. It must be
