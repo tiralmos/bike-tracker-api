@@ -17,6 +17,7 @@ import {
   ScheduleService,
   ScheduleUpdate,
 } from "src/schedule/schedule.service"
+import { StationsService } from "src/stations/stations.service"
 import { vi } from "vitest"
 import { mock, mockDeep, MockProxy } from "vitest-mock-extended"
 import { WebSocket } from "ws"
@@ -42,6 +43,10 @@ describe("ScheduleGateway", () => {
         {
           provide: ScheduleService,
           useValue: mockScheduleService,
+        },
+        {
+          provide: StationsService,
+          useValue: mock<StationsService>(),
         },
         {
           provide: ScheduleMetricsService,

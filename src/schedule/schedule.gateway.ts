@@ -52,6 +52,7 @@ import {
 } from "src/filters/ws-exception.filter"
 import { WsLogContextInterceptor } from "src/interceptors/ws-log-context.interceptor"
 import { captureWsException, createConnectionScope } from "src/sentry/websocket"
+import { StationsService, StationsUpdate } from "src/stations/stations.service"
 import { WebSocket, Server as WsServer } from "ws"
 import { ConnectedClient, parseClientVersions } from "./client"
 import { ScheduleMetricsService } from "./schedule-metrics.service"
@@ -85,6 +86,16 @@ export class ScheduleSubscriptionDto {
   listMode?: "sequential" | "nextPerRoute"
 }
 
+export class StationsSubscriptionDto {
+  @IsString()
+  @IsOptional()
+  feedCode?: string
+
+  @IsNotEmpty()
+  @IsString()
+  stationIds!: string
+}
+
 @WebSocketGateway()
 @UseInterceptors(WsLogContextInterceptor)
 @UseFilters(
@@ -112,6 +123,7 @@ export class ScheduleGateway
 
   constructor(
     private readonly scheduleService: ScheduleService,
+    private readonly stationsService: StationsService,
     private readonly metricsService: ScheduleMetricsService,
     @InjectPinoLogger(ScheduleGateway.name)
     private readonly logger: PinoLogger,
@@ -284,6 +296,56 @@ export class ScheduleGateway
     return merge(scheduleUpdates$, heartbeat$)
   }
 
+  @UsePipes(new ValidationPipe())
+  @SubscribeMessage("stations:subscribe")
+  subscribeToStations(
+    @MessageBody() dto: StationsSubscriptionDto,
+    @ConnectedSocket() socket: ConnectedClient,
+  ): Observable<WsResponse<StationsUpdate | null>> {
+    if (this.subscribers.has(socket.sessionId)) {
+      throw new BadRequestException(
+        "Only one subscription per connection allowed",
+      )
+    }
+
+    const subscription = {
+      feedCode: dto.feedCode || undefined,
+      stationIds: this.stationsService.parseStationIds(dto.stationIds),
+    }
+
+    this.subscribers.add(socket.sessionId)
+
+    const stations$ = this.stationsService.subscribeToStations(
+      subscription,
+      socket.sentryScope,
+    )
+
+    const stationUpdates$ = timer(this.subscribeGracePeriodMs).pipe(
+      switchMap(() =>
+        stations$.pipe(
+          retry({
+            delay: (err, retryCount) =>
+              this.handleSubscriptionError(
+                socket,
+                subscription,
+                err,
+                retryCount,
+              ),
+          }),
+        ),
+      ),
+      map((update) => ({ event: "stations", data: update })),
+      finalize(() => this.subscribers.delete(socket.sessionId)),
+    )
+
+    const heartbeat$ = interval(ms("30s")).pipe(
+      startWith(0),
+      map(() => ({ event: "heartbeat", data: null })),
+    )
+
+    return merge(stationUpdates$, heartbeat$)
+  }
+
   private buildScheduleOptions(
     dto: ScheduleSubscriptionDto,
     routes: RouteAtStopWithOffset[],
@@ -299,7 +361,7 @@ export class ScheduleGateway
 
   private handleSubscriptionError(
     socket: ConnectedClient,
-    subscription: ScheduleOptions,
+    subscription: object,
     err: Error,
     retryCount: number,
   ): Observable<0> {

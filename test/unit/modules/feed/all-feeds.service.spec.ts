@@ -215,6 +215,51 @@ describe("AllFeedsService", () => {
     })
   })
 
+  describe("getStationStatuses", () => {
+    const status = (stationId: string) => ({
+      stationId,
+      name: stationId,
+      capacity: null,
+      docksAvailable: 1,
+      bikesAvailable: 2,
+      mechanicalBikesAvailable: 1,
+      electricBikesAvailable: 1,
+      isInstalled: true,
+      isRenting: true,
+      isReturning: true,
+      lastReported: null,
+    })
+
+    it("asks each feed for its own stations and keeps the requested order", async () => {
+      // Arrange
+      mockFeedProvider1.getStationStatuses = vi
+        .fn()
+        .mockResolvedValue([status("a"), status("b")])
+      mockFeedProvider2.getStationStatuses = vi
+        .fn()
+        .mockResolvedValue([status("c")])
+
+      // Act
+      const result = await allFeedsService.getStationStatuses([
+        "feed1:b",
+        "feed2:c",
+        "feed1:a",
+      ])
+
+      // Assert
+      expect(mockFeedProvider1.getStationStatuses).toHaveBeenCalledWith([
+        "b",
+        "a",
+      ])
+      expect(mockFeedProvider2.getStationStatuses).toHaveBeenCalledWith(["c"])
+      expect(result.map((s) => s.stationId)).toEqual([
+        "feed1:b",
+        "feed2:c",
+        "feed1:a",
+      ])
+    })
+  })
+
   describe("getStopsInArea", () => {
     it("should retrieve stops from all providers in bounds and add feed code to IDs", async () => {
       // Arrange

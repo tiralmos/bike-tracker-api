@@ -10,6 +10,7 @@ import { FeedService } from "./feed.service"
 import {
   FeedProvider,
   RouteAtStop,
+  StationStatus,
   Stop,
   StopRoute,
   TripStop,
@@ -167,6 +168,40 @@ export class AllFeedsService implements FeedProvider {
         }))
       }),
     ).then((results) => results.flat())
+  }
+
+  async getStationStatuses(stationIds: string[]): Promise<StationStatus[]> {
+    const parsedIds = stationIds.map((stationId) =>
+      this.fromGlobalId(stationId),
+    )
+
+    const statusesByFeed = await Promise.all(
+      Array.from(new Set(parsedIds.map(({ feedCode }) => feedCode))).map(
+        async (feedCode) => {
+          const { feedProvider } = parsedIds.find(
+            (parsed) => parsed.feedCode === feedCode,
+          )!
+
+          const statuses =
+            (await feedProvider.getStationStatuses?.(
+              parsedIds
+                .filter((parsed) => parsed.feedCode === feedCode)
+                .map(({ id }) => id),
+            )) ?? []
+
+          return statuses.map((status) => ({
+            ...status,
+            stationId: this.toGlobalId(feedCode, status.stationId),
+          }))
+        },
+      ),
+    )
+
+    // Keep the order the stations were asked in, across feeds
+    const statuses = statusesByFeed.flat()
+    return stationIds.flatMap(
+      (stationId) => statuses.find((s) => s.stationId === stationId) ?? [],
+    )
   }
 
   async getAgencyBounds(): Promise<BBox> {
