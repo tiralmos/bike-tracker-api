@@ -290,6 +290,7 @@ The display saves the address as `ws://192.168.1.42:3000/` and should show TCL d
 
 | Symptom | Cause and fix |
 | --- | --- |
+| `http://localhost:3000` fails ("connection reset" or "refused") even though `docker compose ps` shows `api` with `0.0.0.0:3000->3000/tcp` | Another program on your computer also listens on port 3000 and gets the requests. On Windows, find it with `Get-NetTCPConnection -LocalPort 3000 -State Listen \| ForEach-Object { Get-Process -Id $_.OwningProcess }`. Stop that program, or change `"3000:3000"` to `"3001:3000"` in `compose.yaml`, run `docker compose up -d`, and use port 3001 everywhere this guide says 3000. |
 | `docker compose` says `no configuration file provided` | You are not in `transit-tracker-lyon/deploy/lyon`. `cd` there first. |
 | Departures show but `isRealtime` is always `false` | Check `docker compose logs gtfsrt-tcl` (step 7) and run the matching check (step 8.5). Real-time data only exists while TCL vehicles are running, so at night everything is timetable-only. |
 | gtfsrt-tcl logs `Processed 0 trip updates` | Normal at night (about 00:30 to 05:00). During the day, run the `docker compose exec gtfsrt-tcl node -e ...` check from step 7. |
