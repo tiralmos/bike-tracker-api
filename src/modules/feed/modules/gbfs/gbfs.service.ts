@@ -83,7 +83,8 @@ export class GbfsService implements FeedProvider {
         const response = await this.apiClient.fetchJson<{
           stations: GbfsStationInformation[]
         }>(url)
-        return response.data.stations
+        // Some operators park test stations at 0,0
+        return response.data.stations.filter((s) => s.lat !== 0 || s.lon !== 0)
       },
       ms("1h"),
     )
@@ -170,10 +171,7 @@ export class GbfsService implements FeedProvider {
   }
 
   async getAgencyBounds(): Promise<BBox> {
-    // Some operators park test stations at 0,0
-    const stations = (await this.getStationInformation()).filter(
-      (s) => s.lat !== 0 || s.lon !== 0,
-    )
+    const stations = await this.getStationInformation()
     const lons = stations.map((s) => s.lon)
     const lats = stations.map((s) => s.lat)
     return [

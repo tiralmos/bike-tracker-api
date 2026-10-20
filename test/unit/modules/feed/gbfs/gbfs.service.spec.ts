@@ -203,12 +203,15 @@ describe("GbfsService", () => {
       expect(stops.map((s) => s.stopId)).toEqual(["1024"])
     })
 
-    it("derives agency bounds from station positions, ignoring 0,0", async () => {
+    it("ignores test stations at 0,0", async () => {
       STATIONS.push({ station_id: "2", name: "", lat: 0, lon: 0 })
 
       expect(await gbfsService.getAgencyBounds()).toEqual([
         4.815747, 45.743317, 4.86, 45.769684,
       ])
+      expect(
+        (await gbfsService.listStops()).map((s) => s.stopId),
+      ).not.toContain("2")
       STATIONS.pop()
     })
 
