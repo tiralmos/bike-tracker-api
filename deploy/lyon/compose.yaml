@@ -58,7 +58,10 @@ services:
       - "127.0.0.1:50008:3000"
 
   postgres:
-    image: postgres:17
+    # PostgreSQL 18 or newer is required: the schedule queries rely on its
+    # B-tree skip scan to use the stop_times primary key. On 17, every
+    # schedule request scans the whole TCL stop_times table.
+    image: postgres:18
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -70,7 +73,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - "db:/var/lib/postgresql/data"
+      - "db:/var/lib/postgresql"
 
   redis:
     image: redis:6
