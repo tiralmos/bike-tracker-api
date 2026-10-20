@@ -257,7 +257,7 @@ You can also look at the raw real-time feed at <http://localhost:50008/trip-upda
 The display connects to your computer over Wi-Fi, so it needs your computer's local IP address.
 
 1. Find it:
-   - Windows: run `ipconfig` and read `IPv4 Address` under your Wi-Fi or Ethernet adapter.
+   - Windows: run `ipconfig` and read `IPv4 Address` under **Wireless LAN adapter Wi-Fi** (or your Ethernet adapter if the PC is wired). **Ignore any `vEthernet` adapter** (such as `vEthernet (WSL)`, often a `172.x.x.x` address): it is a virtual network that only exists inside your PC, so the display can't reach it.
    - macOS: System Settings → Wi-Fi → Details → IP address, or run `ipconfig getifaddr en0`.
    - Linux: run `hostname -I` and take the first address.
 
