@@ -1,7 +1,15 @@
 # Self-hosted Bike Tracker API for Lyon Vélo'v bike-share stations.
 #
 # The Vélo'v GBFS feed is open data: no account or credentials needed.
-# See docs/deployment/deploy-velov.md for the step-by-step guide.
+#
+# Expects the configurator repository cloned next to this one:
+#
+#   <some folder>/
+#   ├── bike-tracker-api/            (this repository; run compose from deploy/velov)
+#   └── bike-tracker-configurator/   (https://github.com/tiralmos/bike-tracker-configurator)
+#
+# Set your computer's network address in deploy/velov/.env (copy
+# .env.example). See docs/deployment/deploy-velov.md for the full guide.
 
 name: bike-tracker-velov
 
@@ -30,6 +38,17 @@ services:
     ports:
       # Published on every network interface so the display on your Wi-Fi can reach it.
       - "3000:3000"
+
+  configurator:
+    build:
+      context: ../../../bike-tracker-configurator
+      args:
+        API_HOST: "http://${HOST_IP:?Set HOST_IP in deploy/velov/.env}:3000"
+    restart: unless-stopped
+    ports:
+      # Open http://localhost:8080 in Chrome or Edge on this computer. It must be
+      # "localhost": the browser only allows USB (Web Serial) access from there.
+      - "127.0.0.1:8080:80"
 
   redis:
     image: redis:6
