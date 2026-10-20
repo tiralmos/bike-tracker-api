@@ -166,21 +166,21 @@ describe("GbfsService", () => {
         {
           stopId: "1024",
           stopCode: null,
-          name: "ROUVILLE",
+          name: "Rouville",
           lat: 45.769684,
           lon: 4.824607,
         },
         {
           stopId: "2010",
           stopCode: null,
-          name: "CONFLUENCE / DARSE",
+          name: "Confluence / Darse",
           lat: 45.743317,
           lon: 4.815747,
         },
         {
           stopId: "3001",
           stopCode: null,
-          name: "RUE GARIBALDI",
+          name: "Rue Garibaldi",
           lat: 45.76,
           lon: 4.86,
         },
@@ -189,7 +189,7 @@ describe("GbfsService", () => {
 
     it("gets a station by its ID", async () => {
       const stop = await gbfsService.getStop("2010")
-      expect(stop.name).toBe("CONFLUENCE / DARSE")
+      expect(stop.name).toBe("Confluence / Darse")
     })
 
     it("throws StopNotFoundError for an unknown station", async () => {
@@ -227,7 +227,7 @@ describe("GbfsService", () => {
 
       expect(status).toEqual({
         stationId: "1024",
-        name: "ROUVILLE",
+        name: "Rouville",
         capacity: 17,
         docksAvailable: 5,
         bikesAvailable: 11,
@@ -255,7 +255,7 @@ describe("GbfsService", () => {
       const [status] = await gbfsService.getStationStatuses(["3001"])
 
       expect(status).toMatchObject({
-        name: "RUE GARIBALDI",
+        name: "Rue Garibaldi",
         capacity: null,
         mechanicalBikesAvailable: 3,
         electricBikesAvailable: 1,
