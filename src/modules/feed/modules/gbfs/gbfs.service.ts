@@ -23,6 +23,7 @@ import {
   GbfsVehicleType,
 } from "./api-client"
 import { GbfsConfig, GbfsConfigSchema } from "./config"
+import { prettifyStationName } from "./station-name"
 
 const MIN_STATUS_TTL = ms("30s")
 const MAX_STATUS_TTL = ms("2m")
@@ -135,7 +136,9 @@ export class GbfsService implements FeedProvider {
     return {
       stopId: station.station_id,
       stopCode: station.short_name ?? null,
-      name: station.name || station.address || station.station_id,
+      name: prettifyStationName(
+        station.name || station.address || station.station_id,
+      ),
       lat: station.lat,
       lon: station.lon,
     }
