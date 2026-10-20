@@ -23,6 +23,8 @@ import { ScheduleMetricsService } from "./schedule/schedule-metrics.service"
 import { ScheduleController } from "./schedule/schedule.controller"
 import { ScheduleGateway } from "./schedule/schedule.gateway"
 import { ScheduleService } from "./schedule/schedule.service"
+import { StationsController } from "./stations/stations.controller"
+import { StationsService } from "./stations/stations.service"
 import { StopsController } from "./stops/stops.controller"
 import { SystemAlertListener } from "./system-alert.listener"
 import otelSDK from "./tracing"
@@ -80,6 +82,7 @@ import otelSDK from "./tracing"
     ScheduleController,
     ScheduleMetricsController,
     StopsController,
+    StationsController,
     HealthController,
   ],
   providers: [
@@ -88,6 +91,7 @@ import otelSDK from "./tracing"
     ScheduleMetricsService,
     SystemAlertListener,
     ScheduleService,
+    StationsService,
     ScheduleGateway,
     CpuMonitorService,
     ConnectionSheddingService,

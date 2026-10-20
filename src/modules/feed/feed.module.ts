@@ -6,6 +6,7 @@ import { FeedContextModule } from "./feed-context.module"
 import { FeedSyncService } from "./feed-sync.service"
 import { FeedService } from "./feed.service"
 import { FeedsController } from "./feeds.controller"
+import { GbfsModule } from "./modules/gbfs/gbfs.module"
 import { HafasModule } from "./modules/hafas/hafas.module"
 import { MvgModule } from "./modules/mvg/mvg.module"
 
@@ -17,6 +18,7 @@ import { MvgModule } from "./modules/mvg/mvg.module"
     OneBusAwayModule,
     HafasModule,
     MvgModule,
+    GbfsModule,
   ],
   controllers: [FeedsController],
   providers: [FeedService, FeedSyncService],

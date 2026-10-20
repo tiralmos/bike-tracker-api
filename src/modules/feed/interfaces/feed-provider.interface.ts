@@ -36,6 +36,20 @@ export interface StopRoute {
   headsigns: readonly string[]
 }
 
+export interface StationStatus {
+  stationId: string
+  name: string
+  capacity: number | null
+  docksAvailable: number
+  bikesAvailable: number
+  mechanicalBikesAvailable: number
+  electricBikesAvailable: number
+  isInstalled: boolean
+  isRenting: boolean
+  isReturning: boolean
+  lastReported: Date | null
+}
+
 export interface FeedContext<TConfig = unknown> {
   feedCode: string
   config: TConfig
@@ -64,4 +78,12 @@ export interface FeedProvider {
   getStopsInArea(bbox: BBox): Promise<ReadonlyArray<DeepReadonly<Stop>>>
 
   getAgencyBounds?(): Promise<DeepReadonly<BBox>>
+
+  /**
+   * Live availability for bike-share stations. Unknown station IDs are
+   * left out of the result; the rest keep the order they were asked in.
+   */
+  getStationStatuses?(
+    stationIds: string[],
+  ): Promise<ReadonlyArray<DeepReadonly<StationStatus>>>
 }

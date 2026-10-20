@@ -1,0 +1,36 @@
+# Self-hosted Bike Tracker API for Lyon Vélo'v bike-share stations.
+#
+# The Vélo'v GBFS feed is open data: no account or credentials needed.
+# See docs/deployment/deploy-velov.md for the step-by-step guide.
+
+name: bike-tracker-velov
+
+services:
+  api:
+    build:
+      context: ../..
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: "redis://redis:6379"
+      TZ: "Europe/Paris"
+      FEEDS_CONFIG: |
+        feeds:
+          velov:
+            name: Vélo'v
+            description: Lyon, France
+            # Box around the Lyon metropolis, so the configurator map
+            # opens on Lyon (the feed also lists a few test stations
+            # far away from it).
+            serviceArea:
+              - [[4.75, 45.67], [5.0, 45.67], [5.0, 45.91], [4.75, 45.91], [4.75, 45.67]]
+            gbfs:
+              url: https://download.data.grandlyon.com/files/rdata/jcd_jcdecaux.jcdvelov/gbfs.json
+    ports:
+      # Published on every network interface so the display on your Wi-Fi can reach it.
+      - "3000:3000"
+
+  redis:
+    image: redis:6
+    restart: unless-stopped
