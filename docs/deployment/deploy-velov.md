@@ -15,7 +15,7 @@ A count is grey when it is 0, and the whole row is grey when the station is clos
 
 ```mermaid
 graph LR
-    GBFS[(Vélo'v open data<br/>GBFS feed)] --> API(Bike Tracker API<br/>port 3000)
+    GBFS[(Vélo'v open data<br/>GBFS feed)] --> API(Bike Tracker API<br/>port 3001)
     API --> REDIS[(Redis)]
     API -->|Wi-Fi| ESP(Bike Tracker display)
     CONF(Configurator<br/>localhost:8080) -->|USB or Wi-Fi| ESP
@@ -96,6 +96,8 @@ Open `.env` in a text editor and replace `192.168.1.10` with the address from st
 HOST_IP=192.168.1.42
 ```
 
+The API uses port **3001** on your computer. If another program already uses that port, change `API_PORT` in the same file (for example `API_PORT=3002`), and use that number instead of 3001 everywhere in this guide.
+
 ## 5. Start everything
 
 From `deploy/velov`:
@@ -106,13 +108,13 @@ docker compose up -d --build
 
 The first build takes a few minutes. Check that the API sees the Vélo'v stations by opening this page in your browser:
 
-<http://localhost:3000/stations/velov:1024>
+<http://localhost:3001/stations/velov:1024>
 
 You should see the live numbers for station 1024 (Rouville). Then check that the display will be able to reach it, using your own address:
 
-`http://192.168.1.42:3000/stations/velov:1024`
+`http://192.168.1.42:3001/stations/velov:1024`
 
-If the first link works but not the second, your computer's firewall is blocking port 3000. On Windows, allow Docker Desktop on **private networks** when asked, or add an inbound rule for TCP port 3000.
+If the first link works but not the second, your computer's firewall is blocking port 3001. On Windows, allow Docker Desktop on **private networks** when asked, or add an inbound rule for TCP port 3001.
 
 Everything restarts on its own when the computer restarts (as long as Docker Desktop starts with it).
 
@@ -130,7 +132,7 @@ This replaces the Transit Tracker firmware. To go back, flash it again from the 
 ## 7. Choose your stations
 
 1. Click **Continue to configuration** (or **Configure** on the configurator's home page).
-2. Open the **Advanced** tab and check that the API server is `http://<your address>:3000`. It should already be filled in from step 4. If it says `localhost`, click **Change API server** and fix it: the display cannot use `localhost`.
+2. Open the **Advanced** tab and check that the API server is `http://<your address>:3001`. It should already be filled in from step 4. If it says `localhost`, click **Change API server** and fix it: the display cannot use `localhost`.
 3. In the **Stations** tab, click **Edit stations**.
 4. Type part of a station name in the search box (for example `bellecour`) and click a result to add it. You can also click the dots on the map to see a station's current numbers before adding it.
 5. Optionally type a short **name on the display** for each station, and use the arrows to put them in order. The first 3 are shown.
@@ -156,7 +158,7 @@ The display updates its own firmware automatically when a new release is publish
 
 ## Troubleshooting
 
-- **"No base URL set" or "Error loading stations"**: the display can't reach the API. Check the address in the Advanced tab, that `http://<your address>:3000/feeds` opens from another device on your Wi-Fi (e.g. your phone), and the firewall note in step 5.
+- **"No base URL set" or "Error loading stations"**: the display can't reach the API. Check the address in the Advanced tab, that `http://<your address>:3001/feeds` opens from another device on your Wi-Fi (e.g. your phone), and the firewall note in step 5.
 - **"Stations not found"**: the selected stations no longer exist in the Vélo'v feed (stations are sometimes renumbered). Pick them again.
 - **Flashing fails with "file not found"** or similar: the configurator was built before a firmware release existed. Run `docker compose build --no-cache configurator` then `docker compose up -d`.
 - **Logs**: `docker compose logs -f api`.
