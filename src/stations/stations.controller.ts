@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from "@nestjs/common"
+import { Controller, Get, Param, UseInterceptors } from "@nestjs/common"
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
@@ -6,6 +6,9 @@ import {
   ApiParam,
   ApiProperty,
 } from "@nestjs/swagger"
+import ms from "ms"
+import { CacheTTL } from "src/modules/cache/decorators/cache-ttl.decorator"
+import { CacheInterceptor } from "src/modules/cache/interceptors/cache.interceptor"
 import { StationsService } from "./stations.service"
 
 export class StationDto {
@@ -50,6 +53,20 @@ export class StationDto {
   lastReported!: number | null
 }
 
+export class StationListEntryDto {
+  @ApiProperty({ description: "The ID of the station", example: "velov:1024" })
+  stationId!: string
+
+  @ApiProperty({ description: "The name of the station", example: "ROUVILLE" })
+  name!: string
+
+  @ApiProperty({ example: 45.769684 })
+  lat!: number
+
+  @ApiProperty({ example: 4.824607 })
+  lon!: number
+}
+
 export class StationsDto {
   @ApiProperty({ isArray: true, type: StationDto })
   stations!: StationDto[]
@@ -58,6 +75,17 @@ export class StationsDto {
 @Controller("stations")
 export class StationsController {
   constructor(private readonly stationsService: StationsService) {}
+
+  @Get()
+  @UseInterceptors(CacheInterceptor)
+  @CacheTTL(ms("1h"))
+  @ApiOperation({
+    description: "List every bike-share station across all feeds",
+  })
+  @ApiOkResponse({ type: StationListEntryDto, isArray: true })
+  listStations(): Promise<StationListEntryDto[]> {
+    return this.stationsService.listStations()
+  }
 
   @Get(":stationIds")
   @ApiOperation({

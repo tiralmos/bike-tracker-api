@@ -35,6 +35,13 @@ export interface StationsUpdate {
   stations: StationUpdateEntry[]
 }
 
+export interface StationListEntry {
+  stationId: string
+  name: string
+  lat: number
+  lon: number
+}
+
 export interface StationsOptions {
   feedCode?: string
   stationIds: string[]
@@ -78,6 +85,28 @@ export class StationsService {
     }
 
     return this.feedService.all
+  }
+
+  /** Every bike-share station across all feeds, for station pickers. */
+  async listStations(): Promise<StationListEntry[]> {
+    const providers = Object.entries(this.feedService.getAllFeedProviders())
+    const stations = await Promise.all(
+      providers
+        .filter(
+          ([, provider]) => provider.getStationStatuses && provider.listStops,
+        )
+        .map(async ([feedCode, provider]) => {
+          const stops = await provider.listStops!()
+          return stops.map((stop) => ({
+            stationId: `${feedCode}:${stop.stopId}`,
+            name: stop.name,
+            lat: stop.lat,
+            lon: stop.lon,
+          }))
+        }),
+    )
+
+    return stations.flat()
   }
 
   async getStations(options: StationsOptions): Promise<StationsUpdate> {

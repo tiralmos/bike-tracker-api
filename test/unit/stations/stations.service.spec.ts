@@ -35,6 +35,34 @@ describe("StationsService", () => {
     service = new StationsService(mockFeedService, mock<PinoLogger>())
   })
 
+  describe("listStations", () => {
+    it("lists stations from bike-share feeds only, with global IDs", async () => {
+      const bikeProvider = mock<FeedProvider>()
+      bikeProvider.getStationStatuses = vi.fn()
+      bikeProvider.listStops = vi.fn().mockResolvedValue([
+        {
+          stopId: "1024",
+          stopCode: null,
+          name: "ROUVILLE",
+          lat: 45.7,
+          lon: 4.8,
+        },
+      ])
+      const transitProvider = mock<FeedProvider>()
+      ;(transitProvider as any).getStationStatuses = undefined
+      transitProvider.listStops = vi.fn()
+      mockFeedService.getAllFeedProviders.mockReturnValue({
+        velov: bikeProvider,
+        tcl: transitProvider,
+      })
+
+      expect(await service.listStations()).toEqual([
+        { stationId: "velov:1024", name: "ROUVILLE", lat: 45.7, lon: 4.8 },
+      ])
+      expect(transitProvider.listStops).not.toHaveBeenCalled()
+    })
+  })
+
   describe("parseStationIds", () => {
     it("splits on semicolons and trims", () => {
       expect(service.parseStationIds(" velov:1 ;velov:2;")).toEqual([

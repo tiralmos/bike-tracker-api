@@ -232,11 +232,12 @@ describe("AllFeedsService", () => {
 
     it("asks each feed for its own stations and keeps the requested order", async () => {
       // Arrange
-      mockFeedProvider1.getStationStatuses = vi.fn().mockResolvedValue([
-        status("a"),
-        status("b"),
-      ])
-      mockFeedProvider2.getStationStatuses = vi.fn().mockResolvedValue([status("c")])
+      mockFeedProvider1.getStationStatuses = vi
+        .fn()
+        .mockResolvedValue([status("a"), status("b")])
+      mockFeedProvider2.getStationStatuses = vi
+        .fn()
+        .mockResolvedValue([status("c")])
 
       // Act
       const result = await allFeedsService.getStationStatuses([
