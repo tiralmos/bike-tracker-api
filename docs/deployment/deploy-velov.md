@@ -8,7 +8,7 @@ Each row of the display shows one station:
 Rouville  [P] 5   [bike] 0   [⚡bike] 11
            │       │          └── electric bikes available (green bike, yellow bolt)
            │       └── mechanical bikes available (red bike)
-           └── free docks to return a bike (grey "P")
+           └── free docks to return a bike (blue "P")
 ```
 
 A count is grey when it is 0, and the whole row is grey when the station is closed. The display has room for 3 stations (2 if you add header text). Long names scroll; you can also give each station a short name like "Home".
