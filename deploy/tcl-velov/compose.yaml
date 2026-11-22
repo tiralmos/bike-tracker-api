@@ -15,7 +15,9 @@
 # Credentials and your computer's network address live in
 # deploy/tcl-velov/.env (copy .env.example).
 
-name: lyon-tracker
+# Same project name as deploy/lyon, so this stack takes over its containers
+# and keeps its database volume (no need to re-import the TCL timetables).
+name: transit-tracker-lyon
 
 services:
   api:
@@ -76,7 +78,7 @@ services:
 
   configurator:
     build:
-      context: ${CONFIGURATOR_DIR:-../../../bike-tracker-configurator}
+      context: ${CONFIGURATOR_DIR:-../../../transit-tracker-lyon-configurator}
       args:
         # The API address the configurator suggests. API_PUBLIC_URL wins if set
         # (e.g. https://transit-tracker.example.com behind a tunnel).
