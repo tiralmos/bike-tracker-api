@@ -1,0 +1,112 @@
+# Self-hosted API for Lyon: TCL transit departures and Vélo'v bike-share
+# stations in one stack, plus the configurator. One display can show both
+# kinds of rows.
+#
+# Expects these repositories cloned side by side:
+#
+#   <some folder>/
+#   ├── <this API repository>/        (run compose from deploy/tcl-velov)
+#   ├── gtfsrt-tcl/                   (https://github.com/kevinbioj/gtfsrt-tcl)
+#   └── <the configurator repository>/
+#
+# If your clones have other folder names, set GTFSRT_TCL_DIR and
+# CONFIGURATOR_DIR in deploy/tcl-velov/.env.
+#
+# Credentials and your computer's network address live in
+# deploy/tcl-velov/.env (copy .env.example).
+
+name: lyon-tracker
+
+services:
+  api:
+    build:
+      context: ../..
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      gtfsrt-tcl:
+        condition: service_started
+    environment:
+      REDIS_URL: "redis://redis:6379"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/gtfs?sslmode=disable"
+      # Re-import the TCL timetables every night at 04:00 (Paris time).
+      # The import is skipped when the file has not changed.
+      TZ: "Europe/Paris"
+      FEED_SYNC_SCHEDULE: "0 4 * * *"
+      FEEDS_CONFIG: |
+        feeds:
+          tcl:
+            name: TCL
+            description: Lyon, France
+            gtfs:
+              static:
+                url: https://download.data.grandlyon.com/files/rdata/tcl_sytral.tcltheorique/GTFS_TCL.ZIP
+                headers:
+                  Authorization: "Basic ${GRANDLYON_BASIC_AUTH:?Set GRANDLYON_BASIC_AUTH in deploy/tcl-velov/.env}"
+              rtTripUpdates:
+                url: http://gtfsrt-tcl:3000/trip-updates
+          velov:
+            name: Vélo'v
+            description: Lyon, France
+            # Box around the Lyon metropolis (the feed also lists a few
+            # test stations far away from it).
+            serviceArea:
+              - [[4.75, 45.67], [5.0, 45.67], [5.0, 45.91], [4.75, 45.91], [4.75, 45.67]]
+            gbfs:
+              url: https://download.data.grandlyon.com/files/rdata/jcd_jcdecaux.jcdvelov/gbfs.json
+    ports:
+      # Published on every network interface so the display on your Wi-Fi can
+      # reach it. The port on your computer is API_PORT from .env (3001 if
+      # unset); inside the container the API always listens on 3000.
+      - "${API_PORT:-3001}:3000"
+
+  gtfsrt-tcl:
+    build:
+      context: ${GTFSRT_TCL_DIR:-../../../gtfsrt-tcl}
+    restart: unless-stopped
+    environment:
+      TZ: "Europe/Paris"
+      API_CREDENTIALS: "${GRANDLYON_CREDENTIALS:?Set GRANDLYON_CREDENTIALS in deploy/tcl-velov/.env}"
+    ports:
+      # Only reachable from this computer; handy for checking the real-time feed.
+      - "127.0.0.1:50008:3000"
+
+  configurator:
+    build:
+      context: ${CONFIGURATOR_DIR:-../../../bike-tracker-configurator}
+      args:
+        # The API address the configurator suggests. API_PUBLIC_URL wins if set
+        # (e.g. https://transit-tracker.example.com behind a tunnel).
+        API_HOST: "${API_PUBLIC_URL:-http://${HOST_IP:-localhost}:${API_PORT:-3001}}"
+    restart: unless-stopped
+    ports:
+      # Open http://localhost:8080 in Chrome or Edge on this computer. It must
+      # be "localhost": the browser only allows USB (Web Serial) access from there.
+      - "127.0.0.1:${CONFIGURATOR_PORT:-8080}:80"
+
+  postgres:
+    # PostgreSQL 18 or newer is required: the schedule queries rely on its
+    # B-tree skip scan to use the stop_times primary key.
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gtfs
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gtfs"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - "db:/var/lib/postgresql"
+
+  redis:
+    image: redis:6
+    restart: unless-stopped
+
+volumes:
+  db:

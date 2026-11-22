@@ -108,7 +108,11 @@ export class ScheduleGateway
     OnGatewayConnection<ConnectedClient>,
     OnGatewayDisconnect<ConnectedClient>
 {
-  private readonly subscribers: Set<UUID> = new Set()
+  // A connection may hold one schedule subscription and one stations
+  // subscription at the same time, so a display can mix transit rows and
+  // bike-share rows over a single WebSocket.
+  private readonly scheduleSubscribers: Set<UUID> = new Set()
+  private readonly stationSubscribers: Set<UUID> = new Set()
 
   // Delay before a subscription begins fetching schedule data and registering
   // metrics. Connections that drop within this window cost nothing, which
@@ -248,7 +252,7 @@ export class ScheduleGateway
     @MessageBody() dto: ScheduleSubscriptionDto,
     @ConnectedSocket() socket: ConnectedClient,
   ): Observable<WsResponse<ScheduleUpdate | null>> {
-    if (this.subscribers.has(socket.sessionId)) {
+    if (this.scheduleSubscribers.has(socket.sessionId)) {
       throw new BadRequestException(
         "Only one schedule subscription per connection allowed",
       )
@@ -262,7 +266,7 @@ export class ScheduleGateway
       throw new BadRequestException("Too many route-stop pairs; maximum 25")
     }
 
-    this.subscribers.add(socket.sessionId)
+    this.scheduleSubscribers.add(socket.sessionId)
 
     const subscription = this.buildScheduleOptions(dto, routeStopPairs)
     const schedule$ = this.scheduleService.subscribeToSchedule(
@@ -285,7 +289,7 @@ export class ScheduleGateway
         ),
       ),
       map((update) => ({ event: "schedule", data: update })),
-      finalize(() => this.subscribers.delete(socket.sessionId)),
+      finalize(() => this.scheduleSubscribers.delete(socket.sessionId)),
     )
 
     const heartbeat$ = interval(ms("30s")).pipe(
@@ -302,9 +306,9 @@ export class ScheduleGateway
     @MessageBody() dto: StationsSubscriptionDto,
     @ConnectedSocket() socket: ConnectedClient,
   ): Observable<WsResponse<StationsUpdate | null>> {
-    if (this.subscribers.has(socket.sessionId)) {
+    if (this.stationSubscribers.has(socket.sessionId)) {
       throw new BadRequestException(
-        "Only one subscription per connection allowed",
+        "Only one stations subscription per connection allowed",
       )
     }
 
@@ -313,7 +317,7 @@ export class ScheduleGateway
       stationIds: this.stationsService.parseStationIds(dto.stationIds),
     }
 
-    this.subscribers.add(socket.sessionId)
+    this.stationSubscribers.add(socket.sessionId)
 
     const stations$ = this.stationsService.subscribeToStations(
       subscription,
@@ -335,7 +339,7 @@ export class ScheduleGateway
         ),
       ),
       map((update) => ({ event: "stations", data: update })),
-      finalize(() => this.subscribers.delete(socket.sessionId)),
+      finalize(() => this.stationSubscribers.delete(socket.sessionId)),
     )
 
     const heartbeat$ = interval(ms("30s")).pipe(
