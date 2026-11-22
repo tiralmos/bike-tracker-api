@@ -6,6 +6,8 @@ The `gbfs` feed provider reads a bike-share system's [GBFS](https://gbfs.org) fe
 - `GET /stations/:stationIds` — availability for a `;`-separated list of station IDs, e.g. `velov:1024;velov:7024`
 - WebSocket `stations:subscribe` with `{ "stationIds": "velov:1024;velov:7024" }` — sends a `stations` event with the same data whenever it changes (checked about every 30 seconds), plus a `heartbeat` event every 30 seconds
 
+A connection can hold one `stations:subscribe` and one `schedule:subscribe` subscription at the same time, so a display can mix bike-share rows and transit rows over a single WebSocket. `deploy/tcl-velov/compose.yaml` runs the TCL and Vélo'v feeds together.
+
 Each station reports its free docks, and its available bikes split into mechanical and electric ones. The split uses `vehicle_types_available` with `vehicle_types.json` (GBFS 2.1+), or the non-standard `num_ebikes_available` field some 1.x feeds publish.
 
 ## Example

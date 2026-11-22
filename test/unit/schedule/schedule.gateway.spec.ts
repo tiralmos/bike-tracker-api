@@ -11,6 +11,7 @@ import { ScheduleMetricsService } from "src/schedule/schedule-metrics.service"
 import {
   ScheduleGateway,
   ScheduleSubscriptionDto,
+  StationsSubscriptionDto,
 } from "src/schedule/schedule.gateway"
 import {
   RouteAtStopWithOffset,
@@ -32,10 +33,12 @@ vi.mock("src/filters/ws-exception.filter", () => ({
 describe("ScheduleGateway", () => {
   let gateway: ScheduleGateway
   let mockScheduleService: MockProxy<ScheduleService>
+  let mockStationsService: MockProxy<StationsService>
   let moduleRef: TestingModule
 
   beforeEach(async () => {
     mockScheduleService = mock<ScheduleService>()
+    mockStationsService = mock<StationsService>()
 
     moduleRef = await Test.createTestingModule({
       providers: [
@@ -46,7 +49,7 @@ describe("ScheduleGateway", () => {
         },
         {
           provide: StationsService,
-          useValue: mock<StationsService>(),
+          useValue: mockStationsService,
         },
         {
           provide: ScheduleMetricsService,
@@ -216,6 +219,52 @@ describe("ScheduleGateway", () => {
     })
   })
 
+  describe("mixed subscriptions", () => {
+    function scheduleDto() {
+      const dto = new ScheduleSubscriptionDto()
+      dto.routeStopPairs = "tcl:C3,tcl:1234"
+      dto.feedCode = ""
+      dto.limit = 3
+      mockScheduleService.parseRouteStopPairs.mockReturnValue([
+        { routeId: "tcl:C3", stopId: "tcl:1234", offset: 0 },
+      ])
+      mockScheduleService.subscribeToSchedule.mockReturnValue(of({ trips: [] }))
+      return dto
+    }
+
+    function stationsDto() {
+      const dto = new StationsSubscriptionDto()
+      dto.stationIds = "velov:1024"
+      dto.feedCode = ""
+      mockStationsService.parseStationIds.mockReturnValue(["velov:1024"])
+      mockStationsService.subscribeToStations.mockReturnValue(
+        of({ stations: [] }),
+      )
+      return dto
+    }
+
+    it("allows one schedule and one stations subscription on the same connection", () => {
+      const { mockClient } = makeMockClient()
+
+      expect(() =>
+        gateway.subscribeToSchedule(scheduleDto(), mockClient),
+      ).not.toThrow()
+      expect(() =>
+        gateway.subscribeToStations(stationsDto(), mockClient),
+      ).not.toThrow()
+    })
+
+    it("still rejects a second stations subscription on the same connection", () => {
+      const { mockClient } = makeMockClient()
+
+      gateway.subscribeToStations(stationsDto(), mockClient)
+
+      expect(() =>
+        gateway.subscribeToStations(stationsDto(), mockClient),
+      ).toThrow("Only one stations subscription per connection allowed")
+    })
+  })
+
   describe("subscribeToSchedule", () => {
     beforeEach(() => {
       vi.useFakeTimers()
@@ -233,7 +282,7 @@ describe("ScheduleGateway", () => {
       // Set up subscriber list to already contain the client ID
       const subscribersSet = new Set<string>([sessionId])
       // Use private property access to set the subscribers
-      Object.defineProperty(gateway, "subscribers", {
+      Object.defineProperty(gateway, "scheduleSubscribers", {
         value: subscribersSet,
         writable: true,
       })
@@ -346,7 +395,7 @@ describe("ScheduleGateway", () => {
       )
 
       // Check that client is added to subscribers
-      const subscribers = gateway["subscribers"] as Set<string>
+      const subscribers = gateway["scheduleSubscribers"] as Set<string>
       expect(subscribers.has(sessionId)).toBe(true)
     })
 
@@ -374,7 +423,7 @@ describe("ScheduleGateway", () => {
       await waitForGracePeriod()
 
       // Assert
-      const subscribers = gateway["subscribers"] as Set<string>
+      const subscribers = gateway["scheduleSubscribers"] as Set<string>
       expect(subscribers.has(sessionId)).toBe(false)
 
       subscription.unsubscribe()

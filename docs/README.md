@@ -15,6 +15,7 @@ This directory contains documentation to help you make changes to, operate, and 
 - [Deploying with Docker](./deployment/deploy-docker.md)
 - [Running for Lyon (TCL) on your own computer](./deployment/deploy-lyon.md)
 - [Running Bike Tracker for Lyon Vélo'v on your own computer](./deployment/deploy-velov.md)
+- [Running Transit Tracker Lyon with TCL and Vélo'v on one display](./deployment/deploy-tcl-velov.md)
 - [Deploying on Fly.io](./deployment/deploy-fly.md) (⚠️ This is outdated, pending updates)
 
 ### Configuration
