@@ -7,10 +7,10 @@ You choose what each row shows:
 ```
 C3  Gare St-Paul        ((•)) 4min    ← a TCL line at a stop: next departure
 C3  Gare St-Paul             14min    ← the same line again: the departure after
-Bancel  [P] 5  [bike] 0  [⚡bike] 11    ← a Vélo'v station: free docks, bikes, e-bikes
+[V] Bancel  [P] 5  [bike] 0  [⚡bike] 11    ← a Vélo'v station: free docks, bikes, e-bikes
 ```
 
-The display has room for 3 rows, or 2 if you add header text.
+The display has room for 3 rows, or 2 if you add header text. With **time slots** you can show other rows at other times of the day, e.g. your tram in the morning and your Vélo'v station in the evening.
 
 ```mermaid
 graph LR
@@ -173,7 +173,9 @@ The configurator is at **<http://localhost:8080>** (use `localhost`, not the IP:
    - Back in the Rows tab, use the arrows to **order** the rows; only the first 3 are shown (greyed rows are not). Type a short **name on the display** if the destination or station name is too long, e.g. "Home" or "Bellecour".
    - The **⧉** button next to a transit row adds the same line again below it; that second row shows the **following** departure.
    - The **Preview** shows what the display will look like, with live data.
-4. **Customize** tab (optional): header text, abbreviations (e.g. "Gare Part-Dieu" → "Part-Dieu"), and line colors.
+   - **Time slots** (top of the tab): the rows you add first are the **Default rows**. Click **Add a time slot**, set **From** and **To** (e.g. 07:00 to 09:00; a slot can cross midnight, like 22:00 to 06:00), then add that slot's rows the same way. The display shows a slot's rows during its times and the default rows the rest of the day. With no default rows, it stays dark outside the slots. Slots can't overlap: a clashing slot turns red and the configuration won't save until you fix it. The slot active right now is marked "now".
+   - A row's **name on the display** applies to that line at that stop (or that station) in every slot.
+4. **Customize** tab (optional): header text, abbreviations (e.g. "Gare Part-Dieu" → "Part-Dieu"), line colors, and **Brightness**: tick **Set the brightness** and pick a level. The display starts at it after every restart; the buttons on its back still change it until the next restart.
 5. Click **Save configuration to device**. Over USB, or over Wi-Fi: click **Change** at the top of the page and pick the network option.
 
 The display shows "Loading..." for a few seconds, then your rows. Departures update in real time; bike numbers about every 30 seconds.
@@ -181,7 +183,7 @@ The display shows "Loading..." for a few seconds, then your rows. Departures upd
 ## What the display shows
 
 - **Transit row:** line badge in the line's color, destination (or your name), time to departure. The small animated icon and the green time mean real-time data; a grey time is the timetable. "No departures" with `--` means nothing is scheduled soon for that line at that stop.
-- **Bike row:** blue **P** = free docks, red bike = mechanical bikes, green bike with a yellow bolt = e-bikes. A count is grey at 0; the whole row is grey when the station is closed.
+- **Bike row:** the red Vélo'v logo on the left, then blue **P** = free docks, red bike = mechanical bikes, green bike with a yellow bolt = e-bikes. A count is grey at 0; the whole row is grey when the station is closed.
 
 ## Updating
 
@@ -202,7 +204,9 @@ The configurator downloads the newest firmware release each time it starts (`doc
 - **"Loading..." forever with transit rows**: the timetables may not be imported. Run the import command from step 5.
 - **"No rows configured"**: save rows from the configurator.
 - **"Station not found"**: the Vélo'v station no longer exists in the feed; pick it again.
-- **"Too many rows to save"**: the display stores at most 10 rows. Remove some of the hidden ones.
+- **"Too many rows to save"**: the display stores about 40 rows in total (all time slots together), and at most 10 per slot. Remove some of the hidden ones.
+- **The display stays dark**: no time slot is active and there are no default rows. Add default rows, or check the slot times.
+- **Rows from every slot show at once**: the display runs an older firmware. Update it (step 6).
 - **No stops on the transit map**: zoom in further (stops appear from street level), or check that the timetable import finished.
 - **Logs**: `docker compose logs -f api` (or `gtfsrt-tcl`, `configurator`).
 
@@ -211,7 +215,7 @@ The configurator downloads the newest firmware release each time it starts (`doc
 Needed once, and whenever the display code changes. In [transit-tracker-lyon-firmware](https://github.com/tiralmos/transit-tracker-lyon-firmware):
 
 1. **Actions** tab: enable workflows if GitHub asks.
-2. **Releases** → **Draft a new release**, create a tag **higher than the last one** (e.g. `v2.0.0`, since the bike-only firmware went up to `v1.0.3`), and **Publish release**.
+2. **Releases** → **Draft a new release**, create a tag **higher than the last one** (e.g. `v2.0.0`, since the bike-only firmware went up to `v1.0.3`; then `v2.1.0` for time slots and brightness), and **Publish release**.
 3. The "Release Stock Firmware" workflow builds it in about 10 minutes and attaches `firmware.factory.bin`, `firmware.ota.bin` and `manifest.json`.
 4. Restart the configurator so it serves the new release: `docker compose restart configurator`.
 
