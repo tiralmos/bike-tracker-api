@@ -7,6 +7,8 @@ import { seconds, ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler"
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup"
 import { OpenTelemetryModule } from "nestjs-otel"
 import { LoggerModule } from "nestjs-pino"
+import { AlertsController } from "./alerts/alerts.controller"
+import { AlertsService } from "./alerts/alerts.service"
 import { SmokeTestCommand } from "./commands/smoke-test.command"
 import { SyncCommand } from "./commands/sync.command"
 import { env } from "./env"
@@ -28,6 +30,8 @@ import { StationsService } from "./stations/stations.service"
 import { StopsController } from "./stops/stops.controller"
 import { SystemAlertListener } from "./system-alert.listener"
 import otelSDK from "./tracing"
+import { WeatherController } from "./weather/weather.controller"
+import { WeatherService } from "./weather/weather.service"
 
 @Module({
   imports: [
@@ -83,6 +87,8 @@ import otelSDK from "./tracing"
     ScheduleMetricsController,
     StopsController,
     StationsController,
+    AlertsController,
+    WeatherController,
     HealthController,
   ],
   providers: [
@@ -92,6 +98,8 @@ import otelSDK from "./tracing"
     SystemAlertListener,
     ScheduleService,
     StationsService,
+    AlertsService,
+    WeatherService,
     ScheduleGateway,
     CpuMonitorService,
     ConnectionSheddingService,

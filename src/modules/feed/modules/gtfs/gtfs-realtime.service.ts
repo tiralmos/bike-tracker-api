@@ -186,6 +186,63 @@ export class GtfsRealtimeService {
     return successfulResponses.flatMap((r) => r.value)
   }
 
+  /** The service alerts feed, decoded. Empty when the feed has none set up. */
+  async getServiceAlertEntities(): Promise<
+    ReadonlyArray<DeepReadonly<GtfsRt.IFeedEntity>>
+  > {
+    const config = this.config.rtServiceAlerts
+    if (!config) {
+      return []
+    }
+
+    try {
+      return await this.cache.cached(
+        `serviceAlerts-${config.url}`,
+        async () => {
+          this.requestsCounter.add(1, { feed_code: this.feedCode })
+
+          const resp = await fetch(config.url, {
+            signal: AbortSignal.timeout(5000),
+            headers: {
+              "User-Agent":
+                "Transit Tracker API (https://transit-tracker.eastsideurbanism.org/)",
+              ...(config.headers ?? {}),
+            },
+          })
+
+          if (!resp.ok) {
+            throw new UpstreamHttpError(
+              "GET",
+              resp.url,
+              resp.status,
+              resp.statusText,
+            )
+          }
+
+          const message = GtfsRt.FeedMessage.decode(
+            new Uint8Array(await resp.arrayBuffer()),
+          )
+          const entities = message.entity
+            .filter((entity) => entity.alert)
+            .map((entity) =>
+              GtfsRt.FeedEntity.toObject(entity as GtfsRt.FeedEntity, {
+                longs: Number,
+              }),
+            )
+
+          return { value: entities as GtfsRt.IFeedEntity[], ttl: ms("60s") }
+        },
+      )
+    } catch (err) {
+      this.logger.warn(
+        { err, url: config.url },
+        "Failed to fetch service alerts",
+      )
+      this.failuresCounter.add(1, { feed_code: this.feedCode })
+      return []
+    }
+  }
+
   resolveTripTimes(
     trip: DeepReadonly<IGetScheduleForRouteAtStopResult>,
     stopTimeUpdate?: DeepReadonly<IStopTimeUpdate>,

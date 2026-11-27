@@ -7,11 +7,14 @@ import ms from "ms"
 import { getLoggerToken, PinoLogger } from "nestjs-pino"
 import { Socket } from "net"
 import { Observable, of } from "rxjs"
+import { AlertsService } from "src/alerts/alerts.service"
 import { ScheduleMetricsService } from "src/schedule/schedule-metrics.service"
 import {
+  AlertsSubscriptionDto,
   ScheduleGateway,
   ScheduleSubscriptionDto,
   StationsSubscriptionDto,
+  WeatherSubscriptionDto,
 } from "src/schedule/schedule.gateway"
 import {
   RouteAtStopWithOffset,
@@ -19,6 +22,7 @@ import {
   ScheduleUpdate,
 } from "src/schedule/schedule.service"
 import { StationsService } from "src/stations/stations.service"
+import { WeatherService } from "src/weather/weather.service"
 import { vi } from "vitest"
 import { mock, mockDeep, MockProxy } from "vitest-mock-extended"
 import { WebSocket } from "ws"
@@ -50,6 +54,14 @@ describe("ScheduleGateway", () => {
         {
           provide: StationsService,
           useValue: mockStationsService,
+        },
+        {
+          provide: AlertsService,
+          useValue: mock<AlertsService>(),
+        },
+        {
+          provide: WeatherService,
+          useValue: mock<WeatherService>(),
         },
         {
           provide: ScheduleMetricsService,
@@ -262,6 +274,38 @@ describe("ScheduleGateway", () => {
       expect(() =>
         gateway.subscribeToStations(stationsDto(), mockClient),
       ).toThrow("Only one stations subscription per connection allowed")
+    })
+
+    it("allows alerts and weather next to the schedule, once each", () => {
+      const { mockClient } = makeMockClient()
+      const alertsService = (gateway as any).alertsService
+      const weatherService = (gateway as any).weatherService
+      alertsService.parseRouteIds.mockReturnValue(["tcl:C3"])
+      alertsService.subscribeToAlerts.mockReturnValue(of({ alerts: [] }))
+      weatherService.parseLocation.mockReturnValue({
+        latitude: 45.76,
+        longitude: 4.83,
+      })
+      weatherService.subscribeToWeather.mockReturnValue(of())
+
+      const alerts = Object.assign(new AlertsSubscriptionDto(), {
+        routeIds: "tcl:C3",
+      })
+      const weather = Object.assign(new WeatherSubscriptionDto(), {
+        latitude: 45.76,
+        longitude: 4.83,
+      })
+
+      gateway.subscribeToSchedule(scheduleDto(), mockClient)
+      gateway.subscribeToAlerts(alerts, mockClient)
+      gateway.subscribeToWeather(weather, mockClient)
+
+      expect(() => gateway.subscribeToAlerts(alerts, mockClient)).toThrow(
+        "Only one alerts subscription per connection allowed",
+      )
+      expect(() => gateway.subscribeToWeather(weather, mockClient)).toThrow(
+        "Only one weather subscription per connection allowed",
+      )
     })
   })
 
