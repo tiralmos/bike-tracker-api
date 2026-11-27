@@ -175,7 +175,12 @@ The configurator is at **<http://localhost:8080>** (use `localhost`, not the IP:
    - The **Preview** shows what the display will look like, with live data.
    - **Time slots** (top of the tab): the rows you add first are the **Default rows**. Click **Add a time slot**, set **From** and **To** (e.g. 07:00 to 09:00; a slot can cross midnight, like 22:00 to 06:00), then add that slot's rows the same way. The display shows a slot's rows during its times and the default rows the rest of the day. With no default rows, it stays dark outside the slots. Slots can't overlap: a clashing slot turns red and the configuration won't save until you fix it. The slot active right now is marked "now".
    - A row's **name on the display** applies to that line at that stop (or that station) in every slot.
-4. **Customize** tab (optional): header text, abbreviations (e.g. "Gare Part-Dieu" → "Part-Dieu"), line colors, and **Brightness**: tick **Set the brightness** and pick a level. The display starts at it after every restart; the buttons on its back still change it until the next restart.
+4. **Customize** tab (optional): header text, abbreviations (e.g. "Gare Part-Dieu" → "Part-Dieu"), line colors, and **Brightness**: tick **Set the brightness** and pick a level. The display starts at it after every restart; the buttons on its back still change it until the next restart. Under **Extras**, tick what you want (all off by default):
+   - **Disruption alerts**: TCL traffic alerts for your lines (see below).
+   - **Vélo'v logo colored by temperature**.
+   - **Weather**: icon and temperature on the first Vélo'v row, for the place of that row's station (Lyon center if you have no Vélo'v row).
+
+   The Preview on the Rows tab shows them with live data.
 5. Click **Save configuration to device**. Over USB, or over Wi-Fi: click **Change** at the top of the page and pick the network option.
 
 The display shows "Loading..." for a few seconds, then your rows. Departures update in real time; bike numbers about every 30 seconds.
@@ -183,19 +188,34 @@ The display shows "Loading..." for a few seconds, then your rows. Departures upd
 ## What the display shows
 
 - **Transit row:** line badge in the line's color, destination (or your name), time to departure. The small animated icon and the green time mean real-time data; a grey time is the timetable. "No departures" with `--` means nothing is scheduled soon for that line at that stop.
-- **Bike row:** the red Vélo'v logo on the left, then blue **P** = free docks, red bike = mechanical bikes, green bike with a yellow bolt = e-bikes. A count is grey at 0; the whole row is grey when the station is closed.
+- **Bike row:** the red Vélo'v logo on the left, then blue **P** = free docks, red bike = mechanical bikes, green bike with a yellow bolt = e-bikes. A count is grey at 0; the whole row is grey when the station is closed. Each number column is only as wide as the biggest number on screen, which leaves more room for the station name.
+- **Alerts** (if on): a line with an active TCL alert gets a **!** after its name. Its color tells how bad it is: **red** = the line (or part of it) doesn't run, **yellow** = it runs but is disrupted (detour, delays, stop not served), **light blue** = information (planned works...). About every 45 seconds the alert replaces the destination, in the same color, scrolls once, then the destination comes back. The line name and the minutes stay on screen. TCL's feed has no official category, so the color is picked from the alert's words ("interruption", "ne circule pas", "déviation", "retard"...).
+- **Weather** (if on): on the first Vélo'v row, between the name and the numbers: an icon (sun, moon at night, partly cloudy, clouds, rain, snow, storm, fog) and the temperature. It comes from [Open-Meteo](https://open-meteo.com/) (free, no account) through the API, updated every 10 minutes.
+- **Logo by temperature** (if on): the Vélo'v logo and the weather temperature are **icy blue** below 0 °C, **blue** from 0 to 9 °C, **green** from 10 to 19 °C, **orange** from 20 to 27 °C and **red** from 28 °C.
 
 ## Updating
 
 ```shell
 cd transit-tracker-lyon-api && git pull
 cd ../transit-tracker-lyon-configurator && git pull
+cd ../gtfsrt-tcl && git pull
 cd ../transit-tracker-lyon-api/deploy/tcl-velov
 docker compose build
 docker compose up -d
 ```
 
 The configurator downloads the newest firmware release each time it starts (`docker compose restart configurator`), and displays with Auto-Update on install new releases themselves.
+
+### Update for alerts, weather and the logo color (November 2026)
+
+1. On GitHub, merge the four pull requests "alerts, weather and Vélo'v logo color" (API, esphome component, firmware, configurator).
+2. On the server, run the commands of [Updating](#updating) above. The `git pull` in `gtfsrt-tcl` matters: it publishes the TCL alerts at `/service-alerts`, which the API now reads.
+3. Check, in a browser:
+   - <http://localhost:3001/alerts/tcl:C3> (put one of your lines) answers `{"alerts":[...]}`; often an empty list, when nothing is going on.
+   - <http://localhost:3001/weather?lat=45.7578&lon=4.832> shows the temperature in Lyon.
+4. Publish firmware release **`v2.1.0`** (see [Publishing the firmware](#publishing-the-firmware)) and wait for its build (about 10 minutes).
+5. `docker compose restart configurator`, then update the display: it does it by itself within a few hours if **Auto-Update** is on, or right away with **Update firmware** in the configurator.
+6. In the configurator, **Customize** → **Extras**: tick what you want, then **Save configuration to device**.
 
 ## Troubleshooting
 
@@ -208,6 +228,8 @@ The configurator downloads the newest firmware release each time it starts (`doc
 - **The display stays dark**: no time slot is active and there are no default rows. Add default rows, or check the slot times.
 - **Rows from every slot show at once**: the display runs an older firmware. Update it (step 6).
 - **No stops on the transit map**: zoom in further (stops appear from street level), or check that the timetable import finished.
+- **No alerts ever show**: open `http://localhost:50008/service-alerts.json` on the server. If it is empty, TCL has no alert right now (or your `gtfsrt-tcl` is older than its alerts support: `git pull` it and rebuild). If `/alerts/...` fails, check that `rtServiceAlerts` is in `deploy/tcl-velov/compose.yaml`.
+- **No weather**: the API needs internet access to `api.open-meteo.com`. Check `/weather?lat=45.7578&lon=4.832` and `docker compose logs api`.
 - **Logs**: `docker compose logs -f api` (or `gtfsrt-tcl`, `configurator`).
 
 ## Publishing the firmware
@@ -215,7 +237,7 @@ The configurator downloads the newest firmware release each time it starts (`doc
 Needed once, and whenever the display code changes. In [transit-tracker-lyon-firmware](https://github.com/tiralmos/transit-tracker-lyon-firmware):
 
 1. **Actions** tab: enable workflows if GitHub asks.
-2. **Releases** → **Draft a new release**, create a tag **higher than the last one** (e.g. `v2.0.0`, since the bike-only firmware went up to `v1.0.3`; then `v2.1.0` for time slots and brightness), and **Publish release**.
+2. **Releases** → **Draft a new release**, create a tag **higher than the last one** (the last one is `v2.0.1`, so `v2.1.0` for alerts and weather), and **Publish release**.
 3. The "Release Stock Firmware" workflow builds it in about 10 minutes and attaches `firmware.factory.bin`, `firmware.ota.bin` and `manifest.json`.
 4. Restart the configurator so it serves the new release: `docker compose restart configurator`.
 

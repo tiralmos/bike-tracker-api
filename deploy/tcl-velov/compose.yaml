@@ -50,6 +50,9 @@ services:
                   Authorization: "Basic ${GRANDLYON_BASIC_AUTH:?Set GRANDLYON_BASIC_AUTH in deploy/tcl-velov/.env}"
               rtTripUpdates:
                 url: http://gtfsrt-tcl:3000/trip-updates
+              # Disruptions, for displays that turn on alerts
+              rtServiceAlerts:
+                url: http://gtfsrt-tcl:3000/service-alerts
           velov:
             name: Vélo'v
             description: Lyon, France

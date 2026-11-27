@@ -21,6 +21,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -43,6 +44,7 @@ import {
   switchMap,
   timer,
 } from "rxjs"
+import { AlertsService, AlertsUpdate } from "src/alerts/alerts.service"
 import { env } from "src/env"
 import { DomainError } from "src/errors/domain-error"
 import { WebSocketDomainExceptionFilter } from "src/filters/domain-exception.filter"
@@ -53,6 +55,7 @@ import {
 import { WsLogContextInterceptor } from "src/interceptors/ws-log-context.interceptor"
 import { captureWsException, createConnectionScope } from "src/sentry/websocket"
 import { StationsService, StationsUpdate } from "src/stations/stations.service"
+import { WeatherService, WeatherUpdate } from "src/weather/weather.service"
 import { WebSocket, Server as WsServer } from "ws"
 import { ConnectedClient, parseClientVersions } from "./client"
 import { ScheduleMetricsService } from "./schedule-metrics.service"
@@ -96,6 +99,24 @@ export class StationsSubscriptionDto {
   stationIds!: string
 }
 
+export class AlertsSubscriptionDto {
+  @IsNotEmpty()
+  @IsString()
+  routeIds!: string
+}
+
+export class WeatherSubscriptionDto {
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude!: number
+
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude!: number
+}
+
 @WebSocketGateway()
 @UseInterceptors(WsLogContextInterceptor)
 @UseFilters(
@@ -113,6 +134,10 @@ export class ScheduleGateway
   // bike-share rows over a single WebSocket.
   private readonly scheduleSubscribers: Set<UUID> = new Set()
   private readonly stationSubscribers: Set<UUID> = new Set()
+  // Optional extras for the same display: disruption alerts for its lines
+  // and the weather (both at most once per connection)
+  private readonly alertSubscribers: Set<UUID> = new Set()
+  private readonly weatherSubscribers: Set<UUID> = new Set()
 
   // Delay before a subscription begins fetching schedule data and registering
   // metrics. Connections that drop within this window cost nothing, which
@@ -128,6 +153,8 @@ export class ScheduleGateway
   constructor(
     private readonly scheduleService: ScheduleService,
     private readonly stationsService: StationsService,
+    private readonly alertsService: AlertsService,
+    private readonly weatherService: WeatherService,
     private readonly metricsService: ScheduleMetricsService,
     @InjectPinoLogger(ScheduleGateway.name)
     private readonly logger: PinoLogger,
@@ -348,6 +375,86 @@ export class ScheduleGateway
     )
 
     return merge(stationUpdates$, heartbeat$)
+  }
+
+  @UsePipes(new ValidationPipe())
+  @SubscribeMessage("alerts:subscribe")
+  subscribeToAlerts(
+    @MessageBody() dto: AlertsSubscriptionDto,
+    @ConnectedSocket() socket: ConnectedClient,
+  ): Observable<WsResponse<AlertsUpdate>> {
+    if (this.alertSubscribers.has(socket.sessionId)) {
+      throw new BadRequestException(
+        "Only one alerts subscription per connection allowed",
+      )
+    }
+
+    const subscription = {
+      routeIds: this.alertsService.parseRouteIds(dto.routeIds),
+    }
+
+    this.alertSubscribers.add(socket.sessionId)
+
+    const alerts$ = this.alertsService.subscribeToAlerts(
+      subscription,
+      socket.sentryScope,
+    )
+
+    return timer(this.subscribeGracePeriodMs).pipe(
+      switchMap(() =>
+        alerts$.pipe(
+          retry({
+            delay: (err, retryCount) =>
+              this.handleSubscriptionError(
+                socket,
+                subscription,
+                err,
+                retryCount,
+              ),
+          }),
+        ),
+      ),
+      map((update) => ({ event: "alerts", data: update })),
+      finalize(() => this.alertSubscribers.delete(socket.sessionId)),
+    )
+  }
+
+  @UsePipes(new ValidationPipe())
+  @SubscribeMessage("weather:subscribe")
+  subscribeToWeather(
+    @MessageBody() dto: WeatherSubscriptionDto,
+    @ConnectedSocket() socket: ConnectedClient,
+  ): Observable<WsResponse<WeatherUpdate>> {
+    if (this.weatherSubscribers.has(socket.sessionId)) {
+      throw new BadRequestException(
+        "Only one weather subscription per connection allowed",
+      )
+    }
+
+    const subscription = this.weatherService.parseLocation(
+      dto.latitude,
+      dto.longitude,
+    )
+
+    this.weatherSubscribers.add(socket.sessionId)
+
+    return timer(this.subscribeGracePeriodMs).pipe(
+      switchMap(() =>
+        this.weatherService.subscribeToWeather(subscription).pipe(
+          retry({
+            delay: (err, retryCount) =>
+              this.handleSubscriptionError(
+                socket,
+                subscription,
+                err,
+                retryCount,
+              ),
+          }),
+        ),
+      ),
+      map((update) => ({ event: "weather", data: update })),
+      finalize(() => this.weatherSubscribers.delete(socket.sessionId)),
+    )
   }
 
   private buildScheduleOptions(

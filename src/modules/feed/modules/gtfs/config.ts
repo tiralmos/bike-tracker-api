@@ -24,6 +24,8 @@ export const GtfsConfigSchema = z.strictObject({
   rtTripUpdates: z
     .union([FetchConfigOrUrlSchema, z.array(RouteIdFilteredFetchConfigSchema)])
     .optional(),
+  /** GTFS-RT service alerts (disruptions), shown on displays that ask for them */
+  rtServiceAlerts: FetchConfigOrUrlSchema.optional(),
 })
 
 export type FetchConfig = z.infer<typeof FetchConfigSchema>

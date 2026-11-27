@@ -8,6 +8,7 @@ import type {
   FeedContext,
   FeedProvider,
   RouteAtStop,
+  ServiceAlert,
   Stop,
   StopRoute,
   SyncOptions,
@@ -33,6 +34,7 @@ import {
 } from "./queries/list-schedule-for-route.queries"
 import { listStopsInArea } from "./queries/list-stops-in-area.queries"
 import { listStops } from "./queries/list-stops.queries"
+import { selectServiceAlerts } from "./service-alerts"
 import { GtfsSyncService } from "./sync/gtfs-sync.service"
 import { getImportMetadata } from "./sync/queries/get-import-metadata.queries"
 
@@ -62,6 +64,15 @@ export class GtfsService implements FeedProvider {
     this.config = config
     this.logger.setContext(`${GtfsService.name}[${feedCode}]`)
     this.metricsService.activate()
+  }
+
+  async getServiceAlerts(routeIds: string[]): Promise<ServiceAlert[]> {
+    const entities = await this.realtimeService.getServiceAlertEntities()
+    return selectServiceAlerts(
+      entities as GtfsRt.IFeedEntity[],
+      routeIds,
+      new Date(),
+    )
   }
 
   static validateConfig(config: any): GtfsConfig {

@@ -10,6 +10,7 @@ import { FeedService } from "./feed.service"
 import {
   FeedProvider,
   RouteAtStop,
+  ServiceAlert,
   StationStatus,
   Stop,
   StopRoute,
@@ -202,6 +203,35 @@ export class AllFeedsService implements FeedProvider {
     return stationIds.flatMap(
       (stationId) => statuses.find((s) => s.stationId === stationId) ?? [],
     )
+  }
+
+  async getServiceAlerts(routeIds: string[]): Promise<ServiceAlert[]> {
+    const parsedIds = routeIds.map((routeId) => this.fromGlobalId(routeId))
+
+    const alertsByFeed = await Promise.all(
+      Array.from(new Set(parsedIds.map(({ feedCode }) => feedCode))).map(
+        async (feedCode) => {
+          const { feedProvider } = parsedIds.find(
+            (parsed) => parsed.feedCode === feedCode,
+          )!
+
+          const alerts =
+            (await feedProvider.getServiceAlerts?.(
+              parsedIds
+                .filter((parsed) => parsed.feedCode === feedCode)
+                .map(({ id }) => id),
+            )) ?? []
+
+          return alerts.map((alert) => ({
+            ...alert,
+            alertId: this.toGlobalId(feedCode, alert.alertId),
+            routeIds: alert.routeIds.map((id) => this.toGlobalId(feedCode, id)),
+          }))
+        },
+      ),
+    )
+
+    return alertsByFeed.flat()
   }
 
   async getAgencyBounds(): Promise<BBox> {

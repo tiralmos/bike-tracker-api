@@ -50,6 +50,21 @@ export interface StationStatus {
   lastReported: Date | null
 }
 
+/** How bad a disruption is: the display colors its alerts with it. */
+export type AlertLevel = "severe" | "warning" | "info"
+
+export interface ServiceAlert {
+  alertId: string
+  /** The routes it concerns, among the ones asked for */
+  routeIds: string[]
+  /** Short title, e.g. "Travaux sur les voies" */
+  header: string
+  description: string
+  level: AlertLevel
+  /** When it stops being active, if known */
+  activeUntil: Date | null
+}
+
 export interface FeedContext<TConfig = unknown> {
   feedCode: string
   config: TConfig
@@ -86,4 +101,9 @@ export interface FeedProvider {
   getStationStatuses?(
     stationIds: string[],
   ): Promise<ReadonlyArray<DeepReadonly<StationStatus>>>
+
+  /** Active service alerts that concern any of these routes. */
+  getServiceAlerts?(
+    routeIds: string[],
+  ): Promise<ReadonlyArray<DeepReadonly<ServiceAlert>>>
 }
